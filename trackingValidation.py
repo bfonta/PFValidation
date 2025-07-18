@@ -20,15 +20,17 @@ def makedir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-class TrackValidPlotter:
-    def __init__(self, tag):
+class ValidPlotter:
+    def __init__(self, tag, odir):
         self.markers = ("s", "v", "o", "x", "^")
         self.colors = ("blue", "orange", "green", "red", "purple")
         self.fontsize = 40
         plt.rcParams.update({'font.size': 22})
 
-        #self.savedir = "/eos/home-b/bfontana/www/NGT/ReleaseTrackValidation/"
-        self.savedir = "/home/bruno/Documents/CERN/NGT/php-plots/Plots_" + tag + "/"
+        if odir:
+            self.savedir = odir
+        else:
+            self.savedir = os.getcwd() + "/Plots_" + tag + "/"
         makedir(os.path.join(self.savedir))
 
     def _div(self, num, den):
@@ -114,14 +116,95 @@ def getEfficiency(passing, total):
             yEffErrUp.append(0)
     return np.array(yEff), np.array(yEffErrLow), np.array(yEffErrUp)
 
+def hgcalReleaseValidation(filepath1, filepath2, tag, odir):
+    """
+    Produces the HGCAL validation comparison plots.
+    """
+    dqm_paths = {"pre3": filepath1,
+                 "pre4": filepath2}
 
-def trackReleaseValidation(filename1, filename2, tag):
+    dqm_files = {"pre3": uproot.open(dqm_paths['pre3'])["DQMData/Run 1/HLT/Run summary/HGCAL/HGCalValidator/hltTiclCandidate"],
+                 "pre4": uproot.open(dqm_paths['pre4'])["DQMData/Run 1/HLT/Run summary/HGCAL/HGCalValidator/hltTiclCandidate"]}
+
+    hgcalCollections = {
+        "Electrons"           : "electrons", 
+        "Photons"             : "photons", 
+        "Muons"               : "muons", 
+        "Pi0"                 : "neutral_pions", 
+        "ChargedHadrons"      : "charged_hadrons", 
+        "NeutralHadrons"      : "neutral_hadrons", 
+    }
+
+    # Plot level 0 histograms
+    names_level0 = [ "Candidates PDG Id", "Candidates charge", "Candidates pT", 
+                     "Candidates raw energy", "Candidates regressed energy", "Candidates type",
+                     "N of tracksters in candidate"]
+
+    histos_level0 = collections.defaultdict(dict)
+    for release in dqm_paths.keys():
+        for name in names_level0:
+            histos_level0[release].update({name: dqm_files[release][name].to_hist()})
+
+    plotter = ValidPlotter(tag, odir)
+    for name in names_level0:
+        plotter.plotHistos(h1=histos_level0["pre3"][name],
+                           h2=histos_level0["pre4"][name],
+                           label1="pre3",
+                           label2="pre4",
+                           modify_ticks=True,
+                           savename=name)
+
+    # Plot nested histograms for each particle type
+    axes = {
+        "energy": "E (GeV)",
+        "pt": r"p$_{\text{T}}$",
+        "eta": r"$\eta$",
+        "phi": r"$\phi$",
+    }
+    metrics = {
+        "eff": "Efficiency",
+        "fake": "Fake Rate",
+    }
+
+    names_nested = {}
+    for coll in hgcalCollections.values():
+        names_nested_coll = {}
+
+        for metric, ylabel in metrics.items():
+            for step in ["energy", "pid"]:
+                for axis, xlabel in axes.items():
+                    names_nested_coll[f"{metric}_{coll}_{step}_{axis}"] = (ylabel, xlabel)
+            # Only include "track" variables for charged particles
+            if coll in ["electrons", "muons", "charged_hadrons"]:
+                for axis, xlabel in axes.items():
+                    names_nested_coll[f"{metric}_{coll}_track_{axis}"] = (ylabel, xlabel)
+        
+        names_nested[coll] = names_nested_coll
+
+    histos_nested = collections.defaultdict(lambda: collections.defaultdict(dict))
+    for release in dqm_paths.keys():
+        for coll in hgcalCollections.values():
+            for name in names_nested[coll]:
+                histos_nested[release][coll].update({name: dqm_files[release][coll][name].to_hist()})
+
+    for coll in hgcalCollections.values():
+        makedir(os.path.join(plotter.savedir, coll))
+        for name, labels in names_nested[coll].items():
+            plotter.plotHistos(h1=histos_nested["pre3"][coll][name],
+                               h2=histos_nested["pre4"][coll][name],
+                               label1="pre3",
+                               label2="pre4",
+                               ylabel=labels[0],
+                               xlabel=labels[1],
+                               title=coll,
+                               savename=coll + '/' + name)
+
+def trackReleaseValidation(filepath1, filepath2, tag, odir):
     """
-    Produces the validation comparison plots.
+    Produces the tracking validation comparison plots.
     """
-    basedir = "/home/bruno/Documents/CERN/NGT/"
-    dqm_paths = {"pre3": os.path.join(basedir, filename1),
-                 "pre4": os.path.join(basedir, filename2)}
+    dqm_paths = {"pre3": filepath1,
+                 "pre4": filepath2}
 
     dqm_files = {"pre3": uproot.open(dqm_paths['pre3'])["DQMData/Run 1/HLT/Run summary/Tracking/ValidationWRTtp"],
                  "pre4": uproot.open(dqm_paths['pre4'])["DQMData/Run 1/HLT/Run summary/Tracking/ValidationWRTtp"]}
@@ -137,16 +220,16 @@ def trackReleaseValidation(filename1, filename2, tag):
     }
 
 
-    names_level0 = ( "globalEfficiencies", "effic_vs_coll",
+    names_level0 = [ "globalEfficiencies", "effic_vs_coll",
                      "fakerate_vs_coll", "pileuprate_coll",
-                     "num_assoc(simToReco)_coll", "num_assoc(recoToSim)_coll" )
+                     "num_assoc(simToReco)_coll", "num_assoc(recoToSim)_coll" ]
 
     histos_level0 = collections.defaultdict(dict)
     for release in dqm_paths.keys():
         for name in names_level0:
             histos_level0[release].update({name: dqm_files[release][name].to_hist()})
 
-    plotter = TrackValidPlotter(tag)
+    plotter = ValidPlotter(tag, odir)
     for name in names_level0:
         plotter.plotHistos(h1=histos_level0["pre3"][name],
                            h2=histos_level0["pre4"][name],
@@ -199,13 +282,15 @@ def trackReleaseValidation(filename1, filename2, tag):
             
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Make track validation plots.')
-    parser.add_argument('--filename1', type=str, required=True, help='Name of the first ROOT filename.')
-    parser.add_argument('--filename2', type=str, required=True, help='Name of the second ROOT filename.')
-    parser.add_argument('--tag', type=str, required=True, help='Tag to uniquely identify the plots.')
+    parser.add_argument('--filepath1', type=str, required=True, help='Name of the first ROOT filepath.')
+    parser.add_argument('--filepath2', type=str, required=True, help='Name of the second ROOT filepath.')
+    parser.add_argument('--tag', type=str, default=None, required=True, help='Tag to uniquely identify the plots.')
+    parser.add_argument('--odir', type=str, required=False, help='Path to the output directory (if not specified, save to current directory).')
     # parser.add_argument('--year', type=str, required=True,
     #                     choices=['2016', '2016APV', '2017', '2018'], help='Year')
     # parser.add_argument('--rebin', type=int, required=False, help="Rebin factor, leading to less bins.", default=1)
     # parser.add_argument('--pu', action='store_true', help='Using PU sample.')
     args = parser.parse_args()
 
-    trackReleaseValidation(filename1=args.filename1, filename2=args.filename2, tag=args.tag)
+    trackReleaseValidation(filepath1=args.filepath1, filepath2=args.filepath2, tag=args.tag, odir=args.odir)
+    hgcalReleaseValidation(filepath1=args.filepath1, filepath2=args.filepath2, tag=args.tag, odir=args.odir)
