@@ -40,9 +40,9 @@ In the harvesting step, use `@hltValidation` option to compute the ratio between
 
 Clone this repository:
 
-    git clone git@github.com:elenavernazza/ValidationPlotsComparison.git
+    git clone git@github.com:bfonta/PFValidation.git
 
 And try the plotter:
 
-    python3 ValidationPlotsComparison/trackingValidation.py --files <path_to_file> --labels <name> --tag <your_tag> --odir <path_to_odir>
-    python3 ValidationPlotsComparison/trackingValidation.py --files <path_to_file1>,<path_to_file2>,<path_to_file3> --labels <name1>,<name2>,<name3> --tag <your_tag> --odir <path_to_odir>
+    python3 PFValidation/trackingValidation.py --files <path_to_file> --labels <name> --tag <your_tag> --odir <path_to_odir>
+    python3 PFValidation/trackingValidation.py --files <path_to_file1>,<path_to_file2>,<path_to_file3> --labels <name1>,<name2>,<name3> --tag <your_tag> --odir <path_to_odir>
