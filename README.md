@@ -44,5 +44,11 @@ Clone this repository:
 
 And try the plotter:
 
-    python3 PFValidation/trackingValidation.py --files <path_to_file> --labels <name> --tag <your_tag> --odir <path_to_odir>
-    python3 PFValidation/trackingValidation.py --files <path_to_file1>,<path_to_file2>,<path_to_file3> --labels <name1>,<name2>,<name3> --tag <your_tag> --odir <path_to_odir>
+    python3 PFValidation/trackingValidation.py --files <path_to_file> --labels <name> --odir <path_to_odir>
+    python3 PFValidation/trackingValidation.py --files <path_to_file1> <path_to_file2> <path_to_file3> --labels <name1> <name2> <name3> --odir <path_to_odir>
+
+For example:
+
+    python3 validation.py --files ~/Downloads/DQM_hltpf.root --odir Plots/
+	
+which stores the plots in a newly created folder named `Plots/`. If the folder exists, an error is thrown.
